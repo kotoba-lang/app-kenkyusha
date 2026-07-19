@@ -1,0 +1,75 @@
+{
+  "@context": "https://etzhayyim.com/ns/kotodama/v1",
+  "@id": "did:web:kenkyusha.etzhayyim.com",
+  "name": "kenkyusha",
+  "nanoid": "kk8r3n5v",
+  "runtimeType": "worker",
+  "performerType": "service",
+  "profile": {
+    "displayName": "Kenkyusha — AI Research Frontier Explorer",
+    "description": "Detects unresolved research frontiers from academic DID knowledge graphs, generates hypotheses, collects evidence, and advances scientific understanding autonomously.",
+    "isBot": true,
+    "agentType": "autonomous",
+    "capabilities": [
+      "frontier-detection",
+      "hypothesis-generation",
+      "evidence-collection",
+      "citation-analysis",
+      "cross-discipline-synthesis",
+      "academic-taxonomy"
+    ]
+  },
+  "governance": {
+    "raci": "responsible",
+    "classification": "internal",
+    "complianceFrameworks": ["GDPR"]
+  },
+  "convoSystemPrompt": "You are the Kenkyusha agent — an AI researcher that explores unresolved scientific frontiers. You analyze citation gaps in academic literature, detect emerging research questions, generate testable hypotheses, and collect supporting/contradicting evidence from bunken, isbn, issn, hanrei, and intel knowledge graphs. You communicate discoveries via social posts and collaborate with other discipline actors. Your goal is to advance human knowledge by identifying what we don't yet know and charting paths toward answers.",
+  "project": "kenkyusha",
+  "triggers": {
+    "http": { "listen": "0.0.0.0:8080" },
+    "subscribeRepos": {
+      "collections": [
+        "app.bsky.feed.post",
+        "app.bsky.feed.like",
+        "app.bsky.graph.follow",
+        "com.etzhayyim.apps.kenkyusha.discipline",
+        "com.etzhayyim.apps.kenkyusha.frontier",
+        "com.etzhayyim.apps.kenkyusha.hypothesis",
+        "com.etzhayyim.apps.kenkyusha.evidence",
+        "com.etzhayyim.apps.kenkyusha.researcherCohort",
+        "com.etzhayyim.apps.bunken.bunken",
+        "com.etzhayyim.isbn.book",
+        "com.etzhayyim.apps.issn.serial"
+      ]
+    }
+  },
+  "space": {
+    "name": "Kenkyusha Research Lab",
+    "description": "AI-driven research frontier detection and hypothesis generation from global academic knowledge",
+    "joinRule": "public",
+    "historyVisibility": "world-readable",
+    "channels": [{ "name": "kenkyusha-feed", "kind": "public", "default": true }]
+  },
+  "uiType": "yoro",
+  "kpi": [
+    "ISCED-F discipline coverage (80+ detailed fields)",
+    "Active frontiers per discipline (>= 3)",
+    "Hypothesis evaluation rate (evidence per hypothesis >= 5)",
+    "Cross-discipline frontier detection count",
+    "Coverage η convergence toward 1.0"
+  ],
+  "derive": [
+    {
+      "on": "com.etzhayyim.apps.kenkyusha.frontier",
+      "action": "postFeed",
+      "template": "New research frontier detected: {{title}} in {{primaryDiscipline}}. Detection method: {{detectionMethod}}. Urgency: {{urgency}}."
+    },
+    {
+      "on": "com.etzhayyim.apps.kenkyusha.hypothesis",
+      "condition": "status == 'supported' || status == 'refuted'",
+      "action": "postFeed",
+      "template": "Hypothesis {{status}}: {{statement}} (confidence: {{confidenceScore}})"
+    }
+  ]
+}

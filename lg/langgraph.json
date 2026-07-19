@@ -1,0 +1,35 @@
+{
+  "$comment": "kenkyusha — LangGraph Server for AI research-frontier explorer. ADR-2605080600 / ADR-2605082100 / ADR-2605111200.",
+  "dependencies": [
+    "./",
+    "../../../40-engine/kotoba/crates/kotoba-kotodama/py"
+  ],
+  "graphs": {
+    "kenkyusha_research_loop": "kotodama.kenkyusha.graph:build_graph"
+  },
+  "env": ".env",
+  "python_version": "3.11",
+  "checkpointer": {
+    "type": "postgres",
+    "conn_str_env": "RW_URL",
+    "schema": "lg_kenkyusha_checkpoint"
+  },
+  "crons": [
+    {
+      "graph_id": "kenkyusha_research_loop",
+      "schedule": "17 */6 * * *",
+      "input": {
+        "primaryDiscipline": "0613",
+        "maxHypotheses": 4
+      },
+      "config": {
+        "configurable": {
+          "thread_id": "kenkyusha-cron-research-loop"
+        }
+      }
+    }
+  ],
+  "auth": {
+    "$comment": "x-api-key header (LG_KENKYUSHA_API_KEY env). Cron bypass: x-cron=1."
+  }
+}

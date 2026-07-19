@@ -1,0 +1,22 @@
+;; lg-kenkyusha — clj/bb port of the Python LangGraph server (ADR-2606280030,
+;; langgraph-python -> langgraph-clj). Scoped to THIS app only (does NOT touch
+;; the repo-root bb.edn).
+;;
+;;   src   — lg-kenkyusha.* namespaces (research-loop StateGraph + dispatch + store)
+;;   test  — lg-kenkyusha.smoke-test (clojure.test, parity with lg/tests/test_smoke.py)
+;;
+;; langgraph-clj / langchain-clj are pinned to the same shas as the other wave-1
+;; twins (recap/docs) so the actor StateGraph idiom is byte-identical.
+;; cheshire + babashka.http-client are bb built-ins.
+;;
+;; Run the suite:  bb test   (or:  bb run_tests.clj)
+{:paths ["src" "test"]
+ :deps {com-junkawasaki/langgraph-clj
+        {:git/url "https://github.com/com-junkawasaki/langgraph-clj"
+         :git/sha "c7daa07d4e50f55d7e2a02e4b89dbeb2b200961d"}
+        com-junkawasaki/langchain-clj
+        {:git/url "https://github.com/com-junkawasaki/langchain-clj"
+         :git/sha "2b03859c3ee722b64f3eddd0b615a54019b17c81"}}
+ :tasks
+ {test {:doc "Run the lg-kenkyusha clojure.test suite under bb."
+        :task (load-file "run_tests.clj")}}}
