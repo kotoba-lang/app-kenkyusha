@@ -8,6 +8,7 @@
   (:require [babashka.http-client :as http]
             [clojure.test :as t]
             [lg-kenkyusha.graphs.research-loop :as research]
+            [lg-kenkyusha.impact-observation-test]
             [lg-kenkyusha.smoke-test]))
 
 (defn- env [name default] (or (System/getenv name) default))
