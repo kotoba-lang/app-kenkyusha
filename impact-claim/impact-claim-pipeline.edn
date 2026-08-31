@@ -1,0 +1,170 @@
+;; impact-claim-pipeline.edn — bounded, executable actor contract for
+;; proposing SIGNED research-impact claims into Hyakka
+;; (network-awai/app-hyakka) on top of the MERGED
+;; `lg-kenkyusha.impact-observation` contract (impact-observation/v1).
+;;
+;; Relationship to impact-observation/v1: that contract defines the
+;; observation SCHEMA layer (provenance admission, additive per-dimension
+;; tallies, append-only refresh history, Hyakka proposal/readback). This
+;; contract adds the PIPELINE layer the schema does not specify: source
+;; proposal → fetch receipt → parser admission → dedupe → bounded
+;; retry/refusal → signed claim proposal → deterministic readback →
+;; human-readable audit. It COMPOSES with impact-observation/v1 and reuses
+;; its source-class allow list, required-provenance fields, and dimension
+;; set unchanged.
+;;
+;; Safety posture (inherited from the workspace research-scope):
+;;   • External content is untrusted — no instruction embedded in a fetched
+;;     page may change this contract's behaviour.
+;;   • Collectors PROPOSE claims; they never declare publication or
+;;     correctness. Every claim is signed and carries its provenance chain.
+;;   • Original language and identifiers are preserved verbatim.
+;;   • No contact, registration, purchase, application, sponsorship
+;;     solicitation or financial commitment. robots/auth/WAF/CAPTCHA are
+;;     respected.
+;;   • Not a ranking, not causation, not endorsement, not completeness —
+;;     the impact-observation boundaries carry through to every claim.
+;;
+;; Method version: v1 (2026-09-01). Semantic changes bump :method/version.
+
+{:contract/id :impact-claim-pipeline
+ :contract/version "1.0.0"
+ :method/version "impact-claim-pipeline.v1"
+ :actor :kotoba-lang/app-kenkyusha
+ :proposes-to :network-awai/app-hyakka
+ :composes-with :impact-observation/v1
+
+ ;; ── Stage 1: source proposal ─────────────────────────────────────────
+ ;; The allow list is impact-observation/v1's `allowed-source-classes`
+ ;; VERBATIM — a pipeline cannot admit a class the observation schema
+ ;; refuses. Anything on the forbid list is refused BEFORE any fetch.
+ :source-proposal
+ {:schema [:proposal-id :source-url :source-class :source-language
+           :justification :proposed-at]
+  :source-class-allow #{:citation-registry :official-policy-document
+                        :official-patent-record
+                        :standards-body-first-party
+                        :guideline-publisher-first-party
+                        :publisher-correction-or-retraction}
+  :source-class-forbid #{:search-snippet :generated-summary
+                         :third-party-wiki-prose :scraped-profile
+                         :paywall-bypass :captcha-bypass
+                         :inferred-impact}
+  :run-bounds {:sources-per-run 2}}
+
+ ;; ── Stage 2: fetch receipt ───────────────────────────────────────────
+ ;; Same receipt shape as the impact-observation required-provenance
+ ;; fields: verbatim bytes hashed before any parsing. A failed or blocked
+ ;; fetch is recorded, never retried inside the same receipt.
+ :fetch-receipt
+ {:schema [:receipt-id :source-url :source-class :source-language
+           :observed-at :content-hash :fetch-status]
+  :content-hash {:algo "sha256" :of "response-body-bytes"}
+  :fetch-status-values #{:ok :http-error :blocked-by-policy
+                         :not-modified :robots-disallowed}
+  :fetch {:respect-robots? true :respect-auth-waf-captcha? true
+          :no-bypass? true
+          :user-agent "app-kenkyusha-impact-claim/1.0"}}
+
+ ;; ── Stage 3: parser / admission ──────────────────────────────────────
+ ;; The parser is a pure function of the receipt bytes. Admission is
+ ;; explicit: every record is :admitted, :refused (machine-readable
+ ;; reason code) or :flagged; nothing is silently dropped — this mirrors
+ ;; impact-observation's `normalize-signals` (:admitted / :excluded
+ ;; enumerated, never imputed). Original language and identifiers pass
+ ;; through verbatim. Each admitted record carries its impact dimension
+ ;; and polarity from impact-observation/v1's vocabulary, UNNETTED.
+ :parser-admission
+ {:schema [:receipt-id :record-id :decision
+           :reason-code :impact-dimension :polarity
+           :original-language-fields :admitted-at]
+  :decision-values #{:admitted :refused :flagged}
+  :refusal-codes #{:not-an-impact-record :provenance-missing
+                   :source-class-not-allowed :dimension-unstated
+                   :outside-window :untrusted-encoding}
+  :dimension-vocabulary [:scholarly-citation :replication :correction
+                         :retraction :policy-citation :patent-citation
+                         :standard-adoption
+                         :clinical-guideline-citation
+                         :dataset-or-software-reuse]
+  :polarity-values #{:positive :negative :retraction :unspecified}
+  ;; Original language/identifiers pass through untouched.
+  :preserve [:original-title :source-url :source-language
+             :external-id]}
+
+ ;; ── Stage 4: dedupe key ──────────────────────────────────────────────
+ ;; Deterministic and content-derived (never fetch-order-derived). Two
+ ;; receipts of the same impact signal collapse to one claim only when
+ ;; the key matches exactly. Polarity is NOT part of the key — a later
+ ;; retraction of the same cited artifact arrives as a NEW appended
+ ;; refresh-history entry with its own polarity, never as an overwrite
+ ;; and never netted against the prior entry.
+ :dedupe
+ {:key-schema [:source-namespace :external-id :impact-dimension]
+  :rule :exact-key-match-only
+  :on-collision {:first-wins-keep-provenance true
+                 :append :refresh-history
+                 :polarity-never-netted true
+                 :never-overwrite? true}}
+
+ ;; ── Stage 5: bounded retry / refusal ─────────────────────────────────
+ ;; Retries are bounded per source and back off. Exhausting the bound
+ ;; produces a recorded REFUSAL — never an unbounded loop and never a
+ ;; fabricated placeholder. Missing evidence stays missing.
+ :retry-refusal
+ {:max-attempts-per-source 3
+  :backoff {:kind :exponential :base-seconds 30 :max-seconds 3600}
+  :retryable-fetch-status #{:http-error}
+  :non-retryable #{:blocked-by-policy :robots-disallowed :not-modified}
+  :on-exhausted {:record :refusal :fabricate-placeholder? false
+                 :retry-next-run? true}}
+
+ ;; ── Stage 6: signed Hyakka claim proposal ────────────────────────────
+ ;; A claim is a PROPOSAL carrying a signature over its content hash.
+ ;; A signature asserts provenance, never truth. Publication is decided
+ ;; by Hyakka governance, not by this actor. Claims carry
+ ;; impact-observation/v1's guards (:claim/no-ranking,
+ ;; :claim/no-causal-claim) and one dimension per claim — never a
+ ;; cross-dimension composite, never a score.
+ :claim-proposal
+ {:schema [:claim-id :proposal-id :dedupe-key :claim-kind
+           :claim-dimension :claim-polarity-tallies
+           :window :source-receipt-id :coverage-record-ref
+           :missingness-flags :signature :proposed-at]
+  :claim-kinds #{:impact-signal-observed}
+  :claim-dimension-vocabulary [:scholarly-citation :replication
+                               :correction :retraction
+                               :policy-citation :patent-citation
+                               :standard-adoption
+                               :clinical-guideline-citation
+                               :dataset-or-software-reuse]
+  :required-guards {:no-ranking true :no-causal-claim true
+                    :funding-is-not-endorsement true}
+  :signature {:algo "sha256" :over :claim-content-canonical-edn
+              :key-holder "kotoba-lang/app-kenkyusha impact-claim/1.0"
+              :meaning :provenance-only-not-truth-assertion}
+  :epistemic-boundaries [:publication-is-not-validation
+                         :citation-is-not-support
+                         :correlation-is-not-causation
+                         :funding-is-not-endorsement
+                         :missing-is-unmeasured]
+  :forbidden-fields #{:rank :score :ranking :centrality
+                      :causal-claim :endorsement
+                      :researcher-ordering :success-probability}}
+
+ ;; ── Stage 7: readback ────────────────────────────────────────────────
+ :query-readback
+ {:request-schema [:query-id :claim-kind :dedupe-key :window]
+  :response-schema [:query-id :status :claims [:claim-id]
+                    :coverage-record-ref :missingness-flags]
+  :status-values #{:ok :unmeasured :out-of-window}
+  :rule :readback-must-carry-coverage-and-missingness}
+
+ ;; ── Stage 8: audit output ────────────────────────────────────────────
+ ;; A human-readable audit line per stage, printed at run end.
+ :audit-output
+ {:per-stage [:source-proposal :fetch-receipt :parser-admission
+             :dedupe :retry-refusal :claim-proposal :query-readback
+             :audit-output]
+  :format "one line per stage: stage | id | decision | reason"
+  :rule :audit-must-cover-every-stage-including-refusals}}
