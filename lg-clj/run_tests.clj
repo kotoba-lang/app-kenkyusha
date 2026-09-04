@@ -25,5 +25,7 @@
 (defn with-capabilities [f]
   (binding [research/*config* config research/*advisor* advisor] (f)))
 
-(let [{:keys [fail error]} (t/run-tests 'lg-kenkyusha.smoke-test)]
+(let [{:keys [fail error]}
+      (t/run-tests 'lg-kenkyusha.impact-observation-test
+                   'lg-kenkyusha.smoke-test)]
   (System/exit (if (pos? (+ (or fail 0) (or error 0))) 1 0)))
