@@ -10,6 +10,7 @@
             [lg-kenkyusha.graphs.research-loop :as research]
             [lg-kenkyusha.impact-observation-test]
             [lg-kenkyusha.event-observation-test]
+            [lg-kenkyusha.coverage-observation-test]
             [lg-kenkyusha.smoke-test]))
 
 (defn- env [name default] (or (System/getenv name) default))
@@ -28,5 +29,6 @@
 
 (let [{:keys [fail error]}
       (t/run-tests 'lg-kenkyusha.impact-observation-test
+                   'lg-kenkyusha.coverage-observation-test
                    'lg-kenkyusha.smoke-test)]
   (System/exit (if (pos? (+ (or fail 0) (or error 0))) 1 0)))
