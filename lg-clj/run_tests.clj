@@ -32,3 +32,6 @@
                    'lg-kenkyusha.coverage-observation-test
                    'lg-kenkyusha.smoke-test)]
   (System/exit (if (pos? (+ (or fail 0) (or error 0))) 1 0)))
+            [lg-kenkyusha.conference-cycle-observation-test]
+                   'lg-kenkyusha.event-observation-test
+                   'lg-kenkyusha.conference-cycle-observation-test
