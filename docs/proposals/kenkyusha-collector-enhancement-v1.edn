@@ -1,0 +1,16 @@
+{:proposal-id "kenkyusha-collector-enhancement-v1"
+ :target-repo "orgs/kotoba-lang/app-kenkyusha"
+ :improvement-goal "Enhance the AI researcher actor to collect research ecosystem data (societies, conferences, funding, venues) for provenance-preserving ingestion into Hyakka"
+ :current-scope "Identifies research frontiers and generates hypotheses from academic literature (bunken, hanrei, isbn, issn, intel)"
+ :proposed-scope "Add collection of research societies, conferences, funding/sponsorship, venues as structured data for Hyakka research ecosystem ontology"
+ :technical-approach "Add hybrid capability: maintain existing frontier detection pipeline while adding structured extraction of conference/proceeding metadata, society/organization information, funding award data, and venue details from cross-app sources (bunken, hanrei, isbn, issn, intel, and new endpoints)"
+ :contract-changes [
+   {:component "actor-manifest.jsonld"
+    :change "Add new capabilities: research-society-collection, conference-collection, funding-award-collection, venue-collection"
+    :effect "Actor can now propose signed claims about societies, conferences, funding, and venues for Hyakka ingestion"}
+   {:component "wasm/src/app.ts"
+    :change "Add data collection primitives for conference/proceeding metadata, society metadata, funding award metadata, venue metadata"
+    :effect "Bridge between actor and collection primitives with dedupe key and bounded retry logic"}
+   {:component "kotoba/registry.ts"
+    :change "Register new collection contracts with proper dedupe and provenance tracking"
+    :effect "Structured contracts for each new data type with :source-url, :source-class, :observed-at, :content-hash, :issuing-organization, :original-title"}]
