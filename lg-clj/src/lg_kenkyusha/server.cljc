@@ -19,7 +19,7 @@
   NOTE (coexist — CRITICAL): the DEPLOYED runtime is still the FastAPI pod
   (lg/lg_kenkyusha/server.py via langgraph.json/Dockerfile/Helm). This clj
   dispatcher is the verified, additive twin and COEXISTS until a human cuts over."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [langgraph.graph :as g]
             [lg-kenkyusha.store :as store]
             [lg-kenkyusha.graphs.research-loop :as research-loop]))
@@ -142,7 +142,7 @@
   "Pure dispatcher. ctx = {:store <FrontierStore>}. req = {:method :path :headers
   :query :body}. -> {:status :body}."
   [{:keys [store]} {:keys [method path headers query body]}]
-  (let [method (keyword (str/lower-case (name method)))
+  (let [method (keyword (str/lower (name method)))
         headers (or headers {})
         auth   (auth-of headers)]
     (cond
