@@ -3,7 +3,7 @@
   LLM. Covers the run's required scenarios: time-window refresh, bias/missing-
   data flags, provenance admission, and Hyakka proposal/readback. Health alone
   is NOT asserted as impact — retraction and negative evidence are preserved."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :as t]
             [lg-kenkyusha.impact-observation :as io]))
 

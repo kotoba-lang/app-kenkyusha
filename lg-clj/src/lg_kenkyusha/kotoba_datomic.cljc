@@ -11,7 +11,7 @@
   Read-only `q`/`pull` carry no server key by default (no-server-key, read-only,
   ADR-2606072802 / ADR-2605215000). Endpoint resolution honors
   `KOTOBA_XRPC_URL`/`KOTOBA_URL`; auth (when present) = Bearer JWT (`KOTOBA_BEARER`)."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             #?(:clj [cheshire.core :as json])))
 
 (def ^:dynamic *config*

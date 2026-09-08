@@ -4,7 +4,7 @@
   bias/missing-data flags, provenance/unit admission, and Hyakka
   proposal/readback. Coverage is a goal accounting, never a completeness
   claim — unmeasured units are enumerated, never imputed."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :as t]
             [lg-kenkyusha.coverage-observation :as co]))
 

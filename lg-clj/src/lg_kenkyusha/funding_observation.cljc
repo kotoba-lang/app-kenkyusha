@@ -21,7 +21,7 @@
 
   Pure .cljc — no I/O, no JSON, no LLM. Deterministic by construction: same
   inputs -> byte-identical observation."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 ;; ── contract identity ────────────────────────────────────────────────────────
 

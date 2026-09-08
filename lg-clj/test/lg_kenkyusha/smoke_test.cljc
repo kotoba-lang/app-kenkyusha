@@ -4,7 +4,7 @@
   could not run offline (the LLM + sources + DB are injectable seams here, so the
   6-role super-step pipeline verifies end-to-end under bb with stubs)."
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             #?(:clj [cheshire.core :as json])
             [langgraph.graph :as g]
             [lg-kenkyusha.kotoba-datomic :as kd]
