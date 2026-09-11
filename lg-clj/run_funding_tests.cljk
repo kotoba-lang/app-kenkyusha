@@ -1,5 +1,5 @@
 ;; nbb test runner for the funding-observation contract (JVM-free gate).
-;;   nbb --classpath "lg-clj/src:lg-clj/test" lg-clj/run_funding_tests.cljk
+;;   kbb --backend sci --classpath "lg-clj/src:lg-clj/test" lg-clj/run_funding_tests.cljk
 (ns lg-kenkyusha.host-funding
   (:require [clojure.test :as t]
             [lg-kenkyusha.funding-observation-test]))
