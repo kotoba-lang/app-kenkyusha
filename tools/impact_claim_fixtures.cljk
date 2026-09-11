@@ -1,4 +1,4 @@
-#!/usr/bin/env nbb
+#!/usr/bin/env kbb
 ;; impact_claim_fixtures.cljs — deterministic offline fixtures for the
 ;; impact-claim-pipeline contract (`impact-claim/impact-claim-pipeline.edn`).
 ;;
@@ -14,7 +14,7 @@
 ;;   1  a fixture found a violation
 ;;   2  REFUSED — the contract could not be read
 ;;
-;; Usage: nbb tools/impact_claim_fixtures.cljk [path/to/contract.edn]
+;; Usage: kbb --backend sci tools/impact_claim_fixtures.cljk [path/to/contract.edn]
 
 (ns impact-claim-fixtures
   (:require ["fs" :as fs]

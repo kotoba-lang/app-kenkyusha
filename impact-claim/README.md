@@ -52,7 +52,7 @@ embedded in a fetched page changes this contract's behaviour.
 Verify deterministically (offline, no network):
 
 ```bash
-nbb tools/impact_claim_fixtures.cljk
+kbb --backend sci tools/impact_claim_fixtures.cljk
 ```
 
 Exit codes: `0` all fixtures ran clean · `1` a violation was found ·
