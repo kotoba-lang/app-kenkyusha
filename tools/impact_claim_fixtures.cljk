@@ -14,7 +14,7 @@
 ;;   1  a fixture found a violation
 ;;   2  REFUSED — the contract could not be read
 ;;
-;; Usage: nbb tools/impact_claim_fixtures.cljs [path/to/contract.edn]
+;; Usage: nbb tools/impact_claim_fixtures.cljk [path/to/contract.edn]
 
 (ns impact-claim-fixtures
   (:require ["fs" :as fs]
@@ -42,7 +42,7 @@
     (.update h s) (.digest h "hex")))
 
 ;; ── impact-observation/v1 composition constants (merged contract) ────
-;; These MUST stay in sync with lg-clj/src/lg_kenkyusha/impact_observation.cljc;
+;; These MUST stay in sync with lg-clj/src/lg_kenkyusha/impact_observation.cljk;
 ;; the fixtures fail loudly if the pipeline drifts from the observation schema.
 (def obs-allowed-classes
   #{:citation-registry :official-policy-document :official-patent-record

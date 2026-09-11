@@ -1,0 +1,23 @@
+{:format :kotoba.cljk-origin/v1
+ :renamed-on "2026-09-11"
+ :decision "adr-2609111500-cljk-rename-all-clojure-source (com-junkawasaki/root 90-docs/adr; owner instruction 2026-09-11)"
+ :rule "value = the extension the file had before the rename. A path ending in .clj.cljk or .cljs.cljk kept it in the name because both platform files existed (or the plain target was taken)."
+ :origins
+ {"lg-clj/run_funding_tests.cljk" ".cljs"
+  "lg-clj/run_tests.cljk" ".clj"
+  "lg-clj/src/lg_kenkyusha/coverage_observation.cljk" ".cljc"
+  "lg-clj/src/lg_kenkyusha/event_observation.cljk" ".cljc"
+  "lg-clj/src/lg_kenkyusha/funding_observation.cljk" ".cljc"
+  "lg-clj/src/lg_kenkyusha/graphs/research_loop.cljk" ".cljc"
+  "lg-clj/src/lg_kenkyusha/impact_observation.cljk" ".cljc"
+  "lg-clj/src/lg_kenkyusha/kotoba_datomic.cljk" ".cljc"
+  "lg-clj/src/lg_kenkyusha/research_work_observation.cljk" ".cljc"
+  "lg-clj/src/lg_kenkyusha/server.cljk" ".cljc"
+  "lg-clj/src/lg_kenkyusha/store.cljk" ".cljc"
+  "lg-clj/test/lg_kenkyusha/coverage_observation_test.cljk" ".cljc"
+  "lg-clj/test/lg_kenkyusha/event_observation_test.cljk" ".cljc"
+  "lg-clj/test/lg_kenkyusha/funding_observation_test.cljk" ".cljc"
+  "lg-clj/test/lg_kenkyusha/impact_observation_test.cljk" ".cljc"
+  "lg-clj/test/lg_kenkyusha/research_work_observation_test.cljk" ".cljc"
+  "lg-clj/test/lg_kenkyusha/smoke_test.cljk" ".cljc"
+  "tools/impact_claim_fixtures.cljk" ".cljs"}}
