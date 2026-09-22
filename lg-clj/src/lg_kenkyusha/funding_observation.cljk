@@ -25,7 +25,7 @@
 
 ;; ── contract identity ────────────────────────────────────────────────────────
 
-(def CONTRACT-VERSION "funding-observation/v1")
+(def CONTRACT-VERSION "funding-observation/v2")
 
 (def funding-kinds
   "Explicit funding-kind taxonomy. The KIND is recorded, never inferred, and
@@ -33,11 +33,22 @@
   grant."
   [:grant :sponsorship :award :commissioned-research])
 
-(def allowed-source-classes
-  "research-scope.edn :source-policy :research-allow. Anything else is refused
-  admission (search snippets, generated summaries, third-party wiki prose,
-  scraped profiles, and press aggregators are forbidden source classes)."
+(def legacy-source-classes
+  "v1 class names, still admitted so previously-registered events remain
+  readable; new registrations are expected to use the research-scope.edn
+  :funding-allow names."
   #{:funder-first-party :recipient-first-party :official-funding-registry})
+
+(def allowed-source-classes
+  "research-scope.edn :source-policy :funding-allow, plus the v1 aliases in
+  legacy-source-classes. Anything else is refused admission (search snippets,
+  generated summaries, third-party wiki prose, scraped profiles, and press
+  aggregators are forbidden source classes). Sponsorship may only be
+  registered from an organizer-first-party sponsor page or a
+  sponsor-first-party disclosure — never inferred."
+  (into legacy-source-classes
+        #{:official-funder-registry :recipient-first-party-award-disclosure
+          :conference-organizer-sponsor-page :sponsor-first-party-disclosure}))
 
 (def required-provenance-fields
   "research-scope.edn :required-common-fields — every admitted event must carry
@@ -68,14 +79,16 @@
 ;; ── admission + dedupe (verbatim identifiers, first provenance wins) ─────────
 
 (defn dedupe-key
-  "Deterministic dedupe key. :funding-id is preserved VERBATIM (original case,
-  original form) — no normalization that could silently merge distinct
-  registered forms. Events without a funding-id key on the verbatim
-  source-url instead."
+  "Deterministic dedupe key. The identifier class is preferred in
+  research-scope.edn order — :grant-id (the scope's grant identifier),
+  then :funding-id — each preserved VERBATIM (original case, original form),
+  no normalization that could silently merge distinct registered forms.
+  Events with neither identifier key on the verbatim source-url instead."
   [event]
-  (if (seq (str (get event :funding-id)))
-    [:funding-id (str (get event :funding-id))]
-    [:source-url (str (get event :source-url))]))
+  (cond
+    (seq (str (get event :grant-id)))   [:grant-id (str (get event :grant-id))]
+    (seq (str (get event :funding-id))) [:funding-id (str (get event :funding-id))]
+    :else [:source-url (str (get event :source-url))]))
 
 (defn admit-events
   "Admit only provenance-complete, allowed-source, declared-kind events,
@@ -143,9 +156,10 @@
      :success-rate nil
      :success-rate-forbidden true
      :solicitation-forbidden true
+     :endorsement-forbidden true
      :claims []
      :excluded-events (vec excluded)
-     :admitted-events (mapv #(select-keys % [:event-id :funding-id :funding-kind
+     :admitted-events (mapv #(select-keys % [:event-id :grant-id :funding-id :funding-kind
                                              :funder-name :recipient-name
                                              :announced-amount-verbatim
                                              :source-url :source-class
@@ -190,7 +204,8 @@
      :claim/no-amount-aggregate true
      :claim/no-quality-score true
      :claim/no-success-rate true
-     :claim/no-solicitation true}))
+     :claim/no-solicitation true
+     :claim/no-endorsement true}))
 
 (defn- required-proposal-fields [proposal]
   (remove #(seq (str (get proposal % "")))
@@ -215,7 +230,9 @@
                    (when-not (true? (:claim/no-success-rate proposal))
                      ["success-rate-guard-missing"])
                    (when-not (true? (:claim/no-solicitation proposal))
-                     ["solicitation-guard-missing"])))]
+                     ["solicitation-guard-missing"])
+                   (when-not (true? (:claim/no-endorsement proposal))
+                     ["endorsement-guard-missing"])))]
     (if (seq errs)
       {:ok false :errors errs}
       {:ok true :contract (:claim/contract proposal)})))
