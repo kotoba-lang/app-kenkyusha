@@ -67,6 +67,51 @@
     (t/is (= 2 (count admitted)))
     (t/is (= ["awd-e1" "AWD-e1"] (map :funding-id admitted)))))
 
+(t/deftest scope-funding-allow-source-classes-are-admitted
+  ;; research-scope.edn :funding-allow - sponsor pages/disclosures were
+  ;; refused under v1; v2 admits them, declared-kind rules unchanged.
+  (let [events [(good-event "e1" :source-class :conference-organizer-sponsor-page
+                            :funding-kind :sponsorship)
+                (good-event "e2" :source-class :sponsor-first-party-disclosure
+                            :funding-kind :sponsorship)
+                (good-event "e3" :source-class :official-funder-registry)
+                (good-event "e4" :source-class :recipient-first-party-award-disclosure)
+                (good-event "e5" :source-class :inferred-sponsorship)]
+        {:keys [admitted excluded]} (fo/admit-events events)]
+    (t/is (= 4 (count admitted)))
+    (t/is (= #{[:source-class-not-allowed [:inferred-sponsorship]]}
+             (set (map (juxt :reason :fields) excluded))))))
+
+(t/deftest legacy-source-classes-still-admitted
+  (let [{:keys [admitted]}
+        (fo/admit-events [(good-event "e1" :source-class :funder-first-party)
+                          (good-event "e2" :source-class :recipient-first-party)
+                          (good-event "e3" :source-class :official-funding-registry)])]
+    (t/is (= 3 (count admitted)))))
+
+(t/deftest grant-id-is-preferred-dedupe-identifier-verbatim
+  ;; research-scope.edn identifiers :grant-id — when present it wins over
+  ;; funding-id/source-url, verbatim.
+  (let [e1 (good-event "e1" :grant-id "JP-GRANT-0001")
+        e2 (good-event "e2" :grant-id "JP-GRANT-0001"
+                       :funding-id "AWD-other"
+                       :source-url "https://mirror.example/e2")
+        {:keys [admitted excluded]} (fo/admit-events [e1 e2])]
+    (t/is (= ["e1"] (map :event-id admitted)))
+    (t/is (= [[:duplicate-key [[:grant-id "JP-GRANT-0001"]]]]
+             (map (juxt :reason :fields) excluded)))))
+
+(t/deftest sponsorship-observation-carries-endorsement-boundary
+  (let [obs (fo/build-observation
+             {:events [(good-event "e1" :source-class :conference-organizer-sponsor-page
+                                   :funding-kind :sponsorship)]
+              :observed-at "2026-09-01T00:00:00Z"})
+        proposal (fo/->hyakka-proposal obs)]
+    (t/is (true? (:endorsement-forbidden obs)))
+    (t/is (true? (:claim/no-endorsement proposal)))
+    (t/is (:ok (fo/readback-proposal proposal)))
+    (t/is (false? (:ok (fo/readback-proposal (dissoc proposal :claim/no-endorsement)))))))
+
 (t/deftest event-without-funding-id-dedupes-on-source-url
   (let [{:keys [admitted excluded]}
         (fo/admit-events [(good-event "e1" :funding-id nil)
@@ -137,7 +182,7 @@
         rb (fo/readback-proposal proposal)]
     (t/is (some? proposal))
     (t/is (:ok rb))
-    (t/is (= "funding-observation/v1" (:contract rb)))
+    (t/is (= fo/CONTRACT-VERSION (:contract rb)))
     (t/is (= ["AWD/2026-001" "AWD-e2"] (map :funding-id (:claim/events proposal))))
     (t/is (true? (:claim/no-amount-aggregate proposal)))
     (t/is (true? (:claim/no-solicitation proposal)))))
