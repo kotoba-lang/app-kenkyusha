@@ -37,11 +37,37 @@
     :standards-body-first-party :guideline-publisher-first-party
     :publisher-correction-or-retraction})
 
+(def allowed-identifiers
+  "research-scope.edn :identifiers, the subset applicable to impact signals.
+  Preserved verbatim; never minted, never normalized away. Vector order is the
+  fixed dedupe priority (first present wins) — never set-iteration order."
+  [:doi :orcid :registry-id])
+
 (def required-provenance-fields
   "research-scope.edn :required-common-fields, the subset every admitted signal
   must carry. A signal missing any of these is EXCLUDED and counted as missing —
   preserved, never silently dropped or imputed."
   [:source-url :source-class :source-language :observed-at :content-hash])
+
+;; ── deterministic dedupe key ─────────────────────────────────────────────────
+
+(defn dedupe-key
+  "Deterministic identity-derived key: source namespace (host of :source-url) +
+  allowed identifier (namespace|value). When the signal carries one of the
+  scope's allowed identifiers, the identifier IS the signal's identity — a
+  re-report of the same identifier (new observation, different :content-hash)
+  collapses; the first provenance wins and later arrivals are enumerated
+  duplicates, never double-counted. Without an identifier, identity falls back
+  to the required :content-hash (same bytes on the same host = same signal)."
+  [signal]
+  (let [url (str (get signal :source-url ""))
+        host (subs url 0 (min (count url)
+                              (or (str/index-of url "/" 8) (count url))))
+        id-ns (first (filter #(seq (str (get signal % ""))) allowed-identifiers))
+        id-val (when id-ns (str (get signal id-ns)))]
+    (if id-ns
+      (str host "|" (name id-ns) "|" id-val)
+      (str host "|no-identifier|" (get signal :content-hash)))))
 
 ;; ── signal admission (provenance gate + missingness preservation) ────────────
 
@@ -62,25 +88,36 @@
       :else nil)))
 
 (defn normalize-signals
-  "Admit only provenance-complete, allowed-source, in-window signals. Returns
-  {:admitted [..] :excluded [{:signal-id .. :reason .. :fields ..}]} — excluded
-  signals are enumerated, so missingness is an observation, not a hole."
+  "Admit only provenance-complete, allowed-source, in-window signals, then
+  dedupe by :dedupe-key keeping the FIRST provenance. Returns
+  {:admitted [..] :duplicates [..] :excluded [..]} — duplicates and excluded
+  signals are enumerated, so missingness and re-reports are observations, not
+  holes. Duplicate signals are never double-counted."
   [signals window]
-  (reduce
-   (fn [acc signal]
-     (if-let [p (signal-problems signal window)]
-       (update acc :excluded conj (merge {:signal-id (get signal :signal-id)} p))
-       (update acc :admitted conj signal)))
-   {:admitted [] :excluded []}
-   signals))
+  (let [{:keys [admitted excluded]}
+        (reduce
+         (fn [acc signal]
+           (if-let [p (signal-problems signal window)]
+             (update acc :excluded conj (merge {:signal-id (get signal :signal-id)} p))
+             (update acc :admitted conj (assoc signal :dedupe-key (dedupe-key signal)))))
+         {:admitted [] :excluded []}
+         signals)
+        ;; first provenance wins; later same-key signals are enumerated duplicates
+        by-key (reduce (fn [m e]
+                         (update m (:dedupe-key e) (fnil conj []) e))
+                       {} admitted)]
+    {:admitted (vec (map first (vals by-key)))
+     :duplicates (vec (mapcat rest (vals by-key)))
+     :excluded excluded}))
 
 ;; ── derived observation ──────────────────────────────────────────────────────
 
 (defn- flags-for
-  [{:keys [admitted excluded]} retraction-negatives]
+  [{:keys [admitted duplicates excluded]} retraction-negatives]
   (cond-> #{}
     (zero? (count admitted))          (conj :missing-is-unmeasured)
     (seq excluded)                    (conj :excluded-signals-present)
+    (seq duplicates)                  (conj :duplicates-collapsed)
     (pos? retraction-negatives)       (conj :retraction-present)
     (= 1 (count (set (map :source-url admitted)))) (conj :single-source-dependency)))
 
@@ -93,7 +130,7 @@
   {:pre [(contains? (set impact-dimensions) dimension)
          (map? window) (seq (str (:from window))) (seq (str (:to window)))
          (seq (str observed-at))]}
-  (let [{:keys [admitted excluded]} (normalize-signals signals window)
+  (let [{:keys [admitted duplicates excluded]} (normalize-signals signals window)
         polarity  (fnil identity :unspecified)
         positives  (count (filter #(= :positive (polarity (:polarity %))) admitted))
         negatives  (count (filter #(= :negative (polarity (:polarity %))) admitted))
@@ -105,20 +142,23 @@
      :window {:from (str (:from window)) :to (str (:to window))}
      :observed-at (str observed-at)
      :counts {:measured (count admitted)
+              :duplicates (count duplicates)
               :positive positives
               :negative negatives
               :retraction retractions}
      :coverage {:admitted (count admitted)
+                :duplicates (count duplicates)
                 :excluded (count excluded)
                 :missing-provenance missingness
                 :coverage-claim :partial}
-     :flags (flags-for {:admitted admitted :excluded excluded} retractions)
+     :flags (flags-for {:admitted admitted :excluded excluded :duplicates duplicates} retractions)
      ;; hard boundary markers: what this envelope deliberately does not contain
      :ranking nil
      :ranking-forbidden true
      :causal-claims-forbidden true
      :claims []
      :excluded-signals (vec excluded)
+     :duplicates (vec duplicates)
      :admitted-signals (vec admitted)}))
 
 (defn refresh-observation
