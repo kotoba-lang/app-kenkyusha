@@ -62,7 +62,7 @@
     (t/is (= "impact-observation/v1" (:contract obs)))
     (t/is (= 3 (get-in obs [:counts :measured])))
     ;; polarities are additive tallies — never netted, retractions never removed
-    (t/is (= {:measured 3 :positive 1 :negative 1 :retraction 1} (:counts obs)))
+    (t/is (= {:measured 3 :duplicates 0 :positive 1 :negative 1 :retraction 1} (:counts obs)))
     (t/is (contains? (:flags obs) :retraction-present))
     ;; hard boundaries: no ranking, no causal claims, empty claims, nil ranking
     (t/is (and (:ranking-forbidden obs) (:causal-claims-forbidden obs)))
@@ -98,6 +98,47 @@
                         (good-signal "s2" :source-url "https://example.org/x")]})]
     (t/is (= 2 (get-in obs [:counts :measured])))
     (t/is (contains? (:flags obs) :single-source-dependency))))
+
+
+(t/deftest duplicate-signals-collapse-first-provenance-wins
+  ;; same host + same identifier namespace/value + same content-hash = the same
+  ;; impact signal: counted once, later arrivals enumerated, never double-counted
+  (let [signals [(good-signal "s1" :doi "10.0000/x")
+                 (good-signal "s2" :doi "10.0000/x"
+                              :observed-at "2025-10-02"   ; later re-report
+                              :source-url "https://doi.org/10.0000/replica")
+                 (good-signal "s3" :doi "10.0000/different")]
+        {:keys [admitted duplicates]} (io/normalize-signals signals win-1)]
+    (t/is (= ["s1" "s3"] (map :signal-id admitted)))
+    (t/is (= ["s2"] (map :signal-id duplicates)))
+    (t/is (= 1 (get-in (io/build-observation
+                        {:dimension :scholarly-citation :window win-1
+                         :observed-at "2026-02-28T00:00:00Z" :signals signals})
+                       [:counts :duplicates])))
+    ;; identifier-namespace change breaks the key even on the same host
+    (let [{:keys [admitted duplicates]}
+          (io/normalize-signals
+           [(good-signal "s1" :doi "10.0000/x")
+            (good-signal "s2" :registry-id "R-1")] win-1)]
+      (t/is (empty? duplicates))
+      (t/is (= 2 (count admitted))))
+    ;; different host = different signal even with identical identifier+hash
+    (let [{:keys [duplicates]}
+          (io/normalize-signals
+           [(good-signal "s1" :source-url "https://a.example/1" :doi "10.0000/x")
+            (good-signal "s2" :source-url "https://b.example/1" :doi "10.0000/x")]
+           win-1)]
+      (t/is (empty? duplicates)))))
+
+(t/deftest duplicate-flags-and-envelope-are-enumerated
+  (let [obs (io/build-observation
+             {:dimension :standard-adoption :window win-1
+              :observed-at "2026-02-28T00:00:00Z"
+              :signals [(good-signal "s1") (good-signal "s2" :observed-at "2025-10-02" :content-hash "sha256-s1")]})]
+    (t/is (contains? (:flags obs) :duplicates-collapsed))
+    (t/is (= 1 (get-in obs [:coverage :duplicates])))
+    (t/is (= ["s2"] (map :signal-id (:duplicates obs))))
+    (t/is (= 1 (get-in obs [:counts :measured])))))
 
 (t/deftest one-dimension-per-observation-guard
   (t/is (thrown? Throwable
