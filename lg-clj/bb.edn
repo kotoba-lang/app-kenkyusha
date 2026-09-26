@@ -18,5 +18,5 @@
         {:git/url "https://github.com/com-junkawasaki/langchain-clj"
          :git/sha "2b03859c3ee722b64f3eddd0b615a54019b17c81"}}
  :tasks
- {test {:doc "Run the lg-kenkyusha clojure.test suite under bb."
-        :task (load-file "run_tests.clj")}}}
+ {test {:doc "Run the lg-kenkyusha JVM-free observation suite (delegates to kbb: bb cannot load .cljk sources after the cljk rename)."
+        :task (shell "kbb --backend sci --classpath \"src:test\" run_tests.cljk")}}}
