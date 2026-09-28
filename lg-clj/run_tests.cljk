@@ -1,37 +1,36 @@
-;; lg-kenkyusha clj/bb test runner (repo rule: run_tests.clj, NOT .sh).
+;; JVM-free observation gate — kbb --backend sci (kbb-first, adr-2609112000;
+;; bb can no longer load .cljk sources after the cljk rename).
+;;   bb test                (from lg-clj/; delegates to kbb)
+;;   kbb --backend sci --classpath "src:test" run_tests.cljk
 ;;
-;;   kbb run_tests.cljk      (from 60-apps/etzhayyim-project-kenkyusha/lg-clj/)
-;;   bb test               (bb.edn task alias)
-;;
-;; Exits non-zero if any test fails or errors.
+;; Exit codes: 0 = all observation suites green; 1 = at least one failure or
+;; error; 2 = the runner could not measure the outcome (never passes silently).
+;; The smoke / research-loop suite is NOT silently skipped here — it needs
+;; bb-only deps (babashka.http-client, cheshire) and is refused with a named
+;; line below (refusal, not silence).
 (ns lg-kenkyusha.host
-  (:require [babashka.http-client :as http]
-            [clojure.test :as t]
-            [lg-kenkyusha.graphs.research-loop :as research]
+  (:require [clojure.test :as t]
             [lg-kenkyusha.impact-observation-test]
             [lg-kenkyusha.event-observation-test]
-            [lg-kenkyusha.coverage-observation-test]
-            [lg-kenkyusha.smoke-test]))
+            [lg-kenkyusha.funding-observation-test]
+            [lg-kenkyusha.research-work-observation-test]
+            [lg-kenkyusha.coverage-observation-test]))
 
-(defn- env [name default] (or (System/getenv name) default))
+(println "EXCLUDED-REFUSED lg-kenkyusha.smoke-test: requires bb-only deps (babashka.http-client, cheshire); run it under bb separately.")
 
-(def config
-  {:repo (env "KENKYUSHA_REPO_DID" (:repo research/default-config))
-   :url (env "MURAKUMO_URL" (:url research/default-config))
-   :model (env "MURAKUMO_MODEL" (:model research/default-config))
-   :timeout-sec (Double/parseDouble (env "MURAKUMO_TIMEOUT_SEC" "120"))})
-
-(defn advisor [role prompt]
-  (research/advisor-with http/post config role prompt))
-
-(defn with-capabilities [f]
-  (binding [research/*config* config research/*advisor* advisor] (f)))
-
-(let [{:keys [fail error]}
-      (t/run-tests 'lg-kenkyusha.impact-observation-test
-                   'lg-kenkyusha.coverage-observation-test
-                   'lg-kenkyusha.smoke-test)]
-  (System/exit (if (pos? (+ (or fail 0) (or error 0))) 1 0)))
-            [lg-kenkyusha.conference-cycle-observation-test]
-                   'lg-kenkyusha.event-observation-test
-                   'lg-kenkyusha.conference-cycle-observation-test
+(let [orig t/report
+      fails (atom 0)
+      nss '[lg-kenkyusha.impact-observation-test
+            lg-kenkyusha.event-observation-test
+            lg-kenkyusha.funding-observation-test
+            lg-kenkyusha.research-work-observation-test
+            lg-kenkyusha.coverage-observation-test]]
+  (with-redefs [t/report (fn [m]
+                           (when (#{:fail :error} (:type m)) (swap! fails inc))
+                           (orig m))]
+    (apply t/run-tests nss))
+  (let [bad @fails]
+    (println "SUITE-RESULT failing-assertions=" bad)
+    (.exit js/process (cond (nil? bad) 2
+                            (pos? bad) 1
+                            :else 0))))

@@ -43,6 +43,23 @@
              (set (map (juxt :reason :fields) excluded))))
     (t/is (= 5 (count excluded)))))
 
+(t/deftest every-allowed-entity-type-is-admitted-and-foreign-ones-refused
+  ;; Regression pin for the vector-membership bug: `(contains? [..] k)` is an
+  ;; INDEX lookup on a vector and refused every allowed entity type, silently
+  ;; zeroing all event observations (:missing-is-unmeasured would have lied).
+  (let [{:keys [admitted excluded]}
+        (eo/normalize-events
+         [(good-event "a1" :entity-type :scholarly-society)
+          (good-event "a2" :entity-type :event-series)
+          (good-event "a3" :entity-type :event-edition)
+          (good-event "a4" :entity-type :venue)
+          (good-event "a5" :entity-type :funding-award)]
+         win-1)]
+    (t/is (= #{"a1" "a2" "a3" "a4"} (set (map :event-id admitted))))
+    (t/is (= ["a5"] (mapv :event-id excluded)))
+    (t/is (= [:entity-type-not-allowed] (mapv :reason excluded))
+        "refusal reason is named, not folded into missing-provenance")))
+
 (t/deftest out-of-window-events-are-excluded-not-bucketed-in
   (let [events [(good-event "e1" :observed-at "2026-05-01")   ; win-2 only
                 (good-event "e2" :observed-at "2025-01-01")]  ; before win-1
@@ -125,7 +142,8 @@
         second (eo/refresh-observation first {:entity-type :event-series
                                               :window win-2
                                               :events [(good-event "s2" :entity-type :event-series
-                                                       :official-event-id "S-2")]
+                                                       :official-event-id "S-2"
+                                                       :observed-at "2026-07-01")]
                                               :observed-at "2026-08-31"})]
     (t/is (= 1 (get-in first [:counts :measured])))
     (t/is (= 1 (get-in second [:counts :measured])))
