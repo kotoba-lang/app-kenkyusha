@@ -240,7 +240,7 @@ Dimensions (5):
 
 ```
 60-apps/etzhayyim-project-kenkyusha/
-├── CLAUDE.md                    ← this file
+├── AGENTS.md                    ← this file
 ├── actor-manifest.jsonld        ← T1 MCP-Compose manifest (SSoT, graph MERGE で deploy)
 └── wasm/etzhayyim-wasm-kenkyusha-kk8r3n5v/
     ├── src/app.ts               ← T3 fallback (T1 で不足する場合のみ)
