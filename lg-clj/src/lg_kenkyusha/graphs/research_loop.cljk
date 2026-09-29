@@ -7,7 +7,7 @@
   shared `kotodama.kenkyusha.graph:build_graph` package (declared in langgraph.json
   via `../../../40-engine/.../kotoba-kotodama/py`). That package is not vendored
   into this app dir, so this namespace is a FAITHFUL REPRESENTATION of its
-  documented Science-OS 6-role super-step co-scientist pipeline (CLAUDE.md:
+  documented Science-OS 6-role super-step co-scientist pipeline (AGENTS.md:
   仮説生成 → 文献エビデンス収集 → 検証 → ranking/consensus), with the LLM and the
   evidence/source edges expressed as INJECTABLE seams (the actor swap pattern).
   The result envelope keys are exactly what server.py reads back:
@@ -45,7 +45,7 @@
 
 (defn- clip [s n] (let [s (str s)] (subs s 0 (min n (count s)))))
 
-;; ── frontier id (djb2, mirrors CLAUDE.md `frontier:{djb2Hash}`) ───────────────
+;; ── frontier id (djb2, mirrors AGENTS.md `frontier:{djb2Hash}`) ───────────────
 
 (defn djb2
   "Classic djb2 string hash → unsigned 32-bit, hex (matches the frontier nanoid)."
