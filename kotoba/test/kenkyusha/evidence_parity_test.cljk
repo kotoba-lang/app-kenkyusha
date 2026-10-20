@@ -1,0 +1,30 @@
+(ns kenkyusha.evidence-parity-test
+  "aiueos/kenkyusha_evidence.cljk（判定コア）と正本（types.ts / registry.ts）の
+  parity。閉じた集合・終端規則・拒否名が変われば落ちる drift 検査。"
+  (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            ["fs" :as fs]))
+
+(def types-src
+  (fs/readFileSync (str/join "/" ["kotoba" "src" "types.ts"]) "utf8"))
+(def registry
+  (fs/readFileSync (str/join "/" ["kotoba" "src" "registry.ts"]) "utf8"))
+
+(deftest closed-sets-match-guest
+  (testing "guest test-frontier / test-hypothesis: FrontierStatus 3 / HypothesisStatus 4"
+    (doseq [s ["open" "active" "resolved" "proposed" "testing" "supported" "refuted"]]
+      (is (str/includes? types-src s))))
+  (testing "guest test-evidence: SourceType 6 / Stance 3"
+    (doseq [s ["bunken" "isbn" "issn" "hanrei" "intel" "other"]]
+      (is (str/includes? types-src s)))
+    (doseq [s ["supporting" "contradicting" "neutral"]]
+      (is (str/includes? types-src s)))))
+
+(deftest terminal-rule-matches-guest
+  (testing "guest test-terminal / test-transition: supported / refuted は終端"
+    (is (str/includes? registry "hypothesisTerminal")))
+  (testing "guest test-evidence / test-fail-closed: 拒否名"
+    (is (str/includes? registry "invalidSourceType"))
+    (is (str/includes? registry "invalidStance"))
+    (is (str/includes? registry "missingRequiredFields"))
+    (is (str/includes? registry "hypothesisNotFound"))))

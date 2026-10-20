@@ -1,0 +1,19 @@
+;; app-kenkyusha — itonami（dapp）の aiueos アプリ記述子（notes.edn 形）。
+;; 判定コアは aiueos/kenkyusha_evidence.cljk（frontier/仮説/エビデンス判定）。
+;; 正本は kotoba/src/types.ts + registry.ts。pure（:effects #{}）。
+{:aiueos/component :app/kenkyusha-evidence
+ :aiueos/kind :app
+ :aiueos/trust :untrusted
+ :aiueos/source "kenkyusha_evidence.cljk"
+ :aiueos/wasm "kenkyusha_evidence.wasm"
+ :aiueos/entry "main"
+ :aiueos/args []
+ :aiueos/imports #{}
+ :aiueos/exports #{:app/main
+                   :app/frontier-status-ok
+                   :app/hypothesis-status-ok
+                   :app/terminal-status
+                   :app/transition-judgment
+                   :app/evidence-admission}
+ :aiueos/effects #{}
+ :aiueos/limits {:memory-pages 16 :fuel 5000000}}

@@ -1,0 +1,89 @@
+(ns kenkyusha.evidence
+  "kenkyusha（研究者）判定コア — itonami dapp bundle（pure, :effects #{}）。
+
+  research frontier / 仮説 / エビデンスの判定（正本: kotoba/src/types.ts +
+  registry.ts）:
+
+  - **FrontierStatus**（3）: open / active / resolved。
+  - **HypothesisStatus**（4）: proposed / testing / supported / refuted。
+    **supported / refuted は終端**（hypothesisTerminal）— これ以上遷移しない。
+  - **SourceType**（6）: bunken / isbn / issn / hanrei / intel / other
+    （知識源の閉じた集合）。
+  - **Stance**（3）: supporting / contradicting / neutral（エビデンスの立場）。
+  - エビデンスは仮説が存在していなければ結び付けられない（hypothesisNotFound）。
+
+  frontier-status-ok: 1 = 0..2 の内 / hypothesis-status-ok: 1 = 0..3 の内
+  terminal-status: 1 = supported(2) か refuted(3) = 終端
+  transition-judgment の戻り: 0 = 遷移可 / 1 = hypothesisNotFound
+    / 2 = terminal（拒否）/ 3 = invalidTargetStatus
+  evidence-admission の戻り: 0 = 記録可 / 1 = missingRequiredFields
+    / 2 = invalidSourceType / 3 = invalidStance / 4 = hypothesisNotFound
+
+  実行 host はスカラーのみ = KIR v3 / i64/direct ABI（kernel/selfhost 両対応）。
+
+  テストはゼロ引数 test-*、戻り 1/0:
+  <amu> test aiueos/kenkyusha_evidence.cljk"
+  (:export [main frontier-status-ok hypothesis-status-ok terminal-status
+            transition-judgment evidence-admission
+            test-frontier test-hypothesis test-terminal test-transition
+            test-evidence test-fail-closed]))
+
+(defn main [] :i64
+  0)
+
+(defn frontier-status-ok [code :i64] :i64
+  (if (and (>= code 0) (<= code 2)) 1 0))
+
+(defn hypothesis-status-ok [code :i64] :i64
+  (if (and (>= code 0) (<= code 3)) 1 0))
+
+(defn terminal-status [status-code :i64] :i64
+  (if (or (= status-code 2) (= status-code 3)) 1 0))
+
+(defn transition-judgment [has-hypothesis :i64 is-terminal :i64 target-valid :i64] :i64
+  (if (= has-hypothesis 0)
+    1
+    (if (= is-terminal 1)
+      2
+      (if (= target-valid 1) 0 3))))
+
+(defn evidence-admission [has-required :i64 source-type-ok :i64 stance-ok :i64 has-hypothesis :i64] :i64
+  (if (= has-required 0)
+    1
+    (if (= source-type-ok 0)
+      2
+      (if (= stance-ok 0)
+        3
+        (if (= has-hypothesis 1) 0 4)))))
+
+;; --- tests（戻り 1 = pass） ------------------------------------------------
+
+(defn test-frontier [] :i64
+  (if (= (+ (frontier-status-ok 0) (frontier-status-ok 2) (frontier-status-ok 3)) 2) 1 0))
+
+(defn test-hypothesis [] :i64
+  ;; proposed .. refuted の 4
+  (if (= (+ (hypothesis-status-ok 0) (hypothesis-status-ok 3) (hypothesis-status-ok 4)) 2) 1 0))
+
+(defn test-terminal [] :i64
+  ;; supported / refuted は終端
+  (if (= (+ (terminal-status 2) (terminal-status 3) (terminal-status 0) (terminal-status 1)) 2) 1 0))
+
+(defn test-transition [] :i64
+  ;; 終端からは遷移させない（hypothesisTerminal）
+  (if (= (+ (transition-judgment 1 0 1) (transition-judgment 0 0 1)
+            (transition-judgment 1 1 1) (transition-judgment 1 0 0))
+         6)
+    1 0))
+
+(defn test-evidence [] :i64
+  ;; 拒否順: 必須 → sourceType → stance → 仮説の有無
+  (if (= (+ (evidence-admission 1 1 1 1) (evidence-admission 0 1 1 1)
+            (evidence-admission 1 0 1 1) (evidence-admission 1 1 0 1)
+            (evidence-admission 1 1 1 0))
+         10)
+    1 0))
+
+(defn test-fail-closed [] :i64
+  ;; 集合外の sourceType / stance は拒否
+  (if (= (evidence-admission 1 0 0 1) 2) 1 0))
